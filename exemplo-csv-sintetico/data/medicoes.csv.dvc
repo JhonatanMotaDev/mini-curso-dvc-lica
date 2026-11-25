@@ -1,0 +1,5 @@
+outs:
+- md5: 8259fcc178597cbd7c152ad2b75eb0db
+  size: 1796
+  hash: md5
+  path: medicoes.csv
