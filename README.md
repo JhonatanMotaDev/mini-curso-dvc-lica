@@ -1,5 +1,4 @@
-# Exemplo reprodutível de Git + DVC
-
+# Mini curso DVC - LICA
 Material do minicurso de 11/12/2026, preparado para o primeiro ensaio de 30/11/2026.
 
 ## Repositório e responsáveis
