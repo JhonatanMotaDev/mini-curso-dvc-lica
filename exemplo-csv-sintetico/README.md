@@ -70,9 +70,11 @@ find remote-storage -type f | wc -l     # esperado: 2
 ### Alternar entre versões
 
 ```bash
-git switch --detach 1a466ce && dvc checkout && md5sum data/medicoes.csv   # 8259fcc1...
-git switch feat/csv-sintetico && dvc checkout && md5sum data/medicoes.csv   # f1c46fa2...
+git switch --detach 1a466ce && dvc pull && md5sum data/medicoes.csv   # 8259fcc1...
+git switch feat/csv-sintetico && dvc pull && md5sum data/medicoes.csv   # f1c46fa2...
 ```
+
+> `dvc checkout` só funciona se a versão já estiver no cache local. Em um clone novo, use `dvc pull` (busca no remote e faz o checkout).
 
 ## Evidências
 
@@ -98,3 +100,58 @@ remote-storage/files/md5/f1/c46fa2bb6637081a7561b2c270c95f   # V2 (f1c46fa2...)
 ```
 
 **Total: 2 objetos**, um por versão, com os checksums idênticos aos dos arquivos `.dvc` de cada commit.
+
+## Evidência de recuperação
+
+Executada em 2026-11-27 num **clone novo** do GitHub (cache DVC vazio), com o remote local apontando para `remote-storage/` do clone original.
+
+```text
+$ ls data/                              # antes do pull: só o ponteiro
+medicoes.csv.dvc
+$ dvc pull                              # V2
+1 file fetched and 1 file added
+$ md5sum data/medicoes.csv
+f1c46fa2bb6637081a7561b2c270c95f  data/medicoes.csv
+$ dvc status --cloud
+Cache and remote 'lab' are in sync.
+
+$ git switch --detach 1a466ce && dvc pull        # V1
+1 file fetched and 1 file added
+$ md5sum data/medicoes.csv
+8259fcc178597cbd7c152ad2b75eb0db  data/medicoes.csv
+$ sed -n '11p' data/medicoes.csv
+10,sensor_1,12.68
+
+$ git switch feat/csv-sintetico && dvc checkout  # volta para V2
+$ md5sum data/medicoes.csv
+f1c46fa2bb6637081a7561b2c270c95f  data/medicoes.csv
+$ sed -n '11p' data/medicoes.csv
+10,sensor_1,999.99
+
+$ rm data/medicoes.csv && dvc checkout           # arquivo apagado é restaurado do cache
+$ md5sum data/medicoes.csv
+f1c46fa2bb6637081a7561b2c270c95f  data/medicoes.csv
+```
+
+Regenerar com o script (`generate_csv.py v1` / `v2`) produz os mesmos MD5, confirmando o determinismo.
+
+## Limitações conhecidas
+
+1. **Remote local, não compartilhado.** `remote-storage/` fica só na máquina de quem fez o `dvc push`. Um clone em outra máquina recebe os ponteiros `.dvc`, mas não consegue `dvc pull` sem acesso a essa pasta (ou sem regenerar os dados pelo script). Para uso real em equipe, trocar por um remote compartilhado (S3, SSH, Google Drive etc.).
+2. **`dvc checkout` em clone novo falha** com `missing-files` até o primeiro `dvc pull`. Comportamento esperado do DVC; a seção *Alternar entre versões* já usa `dvc pull`.
+3. **Repositório no GitHub pessoal**, não no GitLab do LICA (`gitlab.ppgmcs.com.br`).
+4. **Commits sem ID da task do ClickUp** no padrão `<tipo>(<escopo>): <CU-ID> <descrição>`.
+5. Dataset sintético de 100 linhas: valida o fluxo Git + DVC, não desempenho com arquivos grandes.
+
+## Aceite
+
+| Item | Onde |
+| --- | --- |
+| Repositório / branch | <https://github.com/JhonatanMotaDev/mini-curso-dvc-lica/tree/feat/csv-sintetico> |
+| README | `exemplo-csv-sintetico/README.md` |
+| Commit V1 | `1a466ce` |
+| Commit V2 | `fcf48be` |
+| Sincronização | seção *Evidências* (`dvc push`, `dvc status --cloud`, 2 objetos no remote) |
+| Recuperação | seção *Evidência de recuperação* (clone novo, V1 e V2 restauradas com MD5 conferido) |
+| Limitações | seção *Limitações conhecidas* |
+| Revisão | Angelina Meiras Ottoni — registra aceite ou ajustes solicitados |
